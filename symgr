@@ -17,7 +17,7 @@ def bless(from_path, to_dir):
     symlink.link_file(to_path, from_path)
 
 
-def link(frm: Path, to: Path):
+def main(args):
     """Link 'frm' to 'to'.
 
     Has DWIM behavior depending on what 'frm' and 'to' are:
@@ -40,6 +40,9 @@ def link(frm: Path, to: Path):
     if frm is a dir and to is a file:
     - makes no sense
     """
+    frm = Path(args.frm)
+    to = Path(args.to)
+
     if frm.is_file() and to.is_dir():
         log.info(f"Blessing file at {frm}. Moving to {to} and linking original path there.")
         return bless(frm, to)
@@ -56,10 +59,6 @@ def link(frm: Path, to: Path):
 
     log.error(f"Invalid arguments: from: {frm}, to: {to}. A required path may not exist.")
     return 1
-
-
-def main(args):
-    return link(Path(args.frm), Path(args.to))
 
 
 if __name__ == "__main__":
