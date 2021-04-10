@@ -13,141 +13,99 @@ SYSTEM_FILES = ('.git', '.gitignore')
 
 
 class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116756
-    def current_link_path(self):
+    def get_link_path(self):
         return self.__class__(os.readlink(self))
 
     def is_ignored(self):
         """Check if the specified path is in the ignore list"""
-        return run(['git', 'check-ignore', '-q', str(self)]).returncode == 0
+        return run(['git', 'check-ignore', '-q', self]).returncode == 0
 
     def backup(self):
         run(['bak', self], check=True)
 
+    def backup_if_file_exists(self):
+        if self.exists() and not self.is_dir():
+            self.backup()
+
+    def points_to(self, path):
+        return self.get_link_path() == path
+
     def walk(self):
         """Return all files under this directory"""
-        for file in self.iterdir():
+        for file in sorted(self.iterdir()):
             if file.is_dir():
                 yield from file.walk()
             else:
                 yield file
 
+    def ensure_parent_exists(self):
+        return self.parent.mkdir(parents=True, exist_ok=True)
 
-def link_directories(source_dir, dest_dir):
-    """Symlink all files within source_dir into dest_dir."""
-    source_dir = SymPath(source_dir).expanduser()
-    dest_dir = SymPath(dest_dir).expanduser()
-    assert source_dir != dest_dir
-    _link_directories(source_dir, dest_dir)
+    def link_at(self, destination, relative_to=None):
+        assert self.exists(), "source must exist to be linked to"
 
+        if not relative_to:
+            relative_to = self.parent if self.is_file() else self
 
-def _link_directories(source_dir, dest_dir):
-    """Do the linking without validation or type coercion.
+        assert relative_to <= self, "relative to must be a parent of source"  # relative to must be a parent dir
 
-    Useful as an entry-point for tests"""
-    log.info(f"Creating symlinks: {source_dir} -> {dest_dir}")
-    for file in sorted(source_dir.walk()):
-        source_path = file
-        dest_path = dest_dir / file.relative_to(source_dir)
+        source_path = self.resolve()
+        dest_path = destination.resolve()
+        assert source_path != dest_path, "source path must not equal dest path"
 
-        # don't link files ignored by git
         if source_path.is_ignored():
             log.debug(f"{source_path} is ignored")
-            continue
-        elif source_path.name in SYSTEM_FILES:
-            log.debug(f"Ignoring system file {source_path}")
-            continue
-
-        log.debug(f"Creating link at {dest_path} to {source_path}")
-        link_file(source_path, dest_path)
-
-
-def link_file(link_path: Path, dest_path: Path):
-    # coerce to SymPaths in case
-    link_path = SymPath(link_path).resolve()  # ensure absolute
-    dest_path = SymPath(dest_path)
-    if link_path.parent.resolve() == dest_path.parent.resolve():
-        msg = (
-            f"Parent directories being linked point to the same place: "
-            f"{link_path.parent} == {dest_path.parent}"
-        )
-        log.error(msg)
-        raise Exception(msg)
-
-    # create parent directories if necessary
-    if not dest_path.parent.exists():
-        log.info(f"Creating directory: {dest_path.parent}")
-        dest_path.parent.mkdir(parents=True)
-
-    # handle existing symlink
-    if dest_path.is_symlink():
-        log.debug(f"{dest_path} is an existing symlink")
-        curr_link_path = dest_path.current_link_path()
-        if curr_link_path == link_path:
-            # if the link points where we want, leave it alone
-            log.debug(f"{dest_path} already points to {link_path}, making no changes")
             return
-        else:
-            # otherwise remove the wrong-pointing symlink
-            log.info(f"{dest_path} points to {curr_link_path}. Removing.")
-            dest_path.unlink()
-    # back up existing files
-    elif dest_path.is_file():
-        log.info(f"Existing file at {dest_path}. Backing up.")
-        dest_path.backup()
 
-    log.info(f"Creating symlink at {dest_path} to {link_path}")
-    dest_path.symlink_to(link_path)
+        if source_path.name in SYSTEM_FILES:
+            log.debug(f"Ignoring system file {source_path}")
+            return
 
+        if source_path.is_dir():
+            for path in self.walk():
+                dest = destination / path.relative_to(relative_to)
+                path.link_at(dest, relative_to)
+            return
 
+        final_path = dest_path
+        if dest_path.is_dir():
+            final_path = SymPath(dest_path / source_path.name)
 
-def bless(from_path, to_dir):
-    to_path = to_dir / from_path.name
-    copy2(from_path, to_path)
-    link_file(to_path, from_path)
+        # deal with existing symlink
+        if final_path.is_symlink():
+            # make sure it's pointing to the right place
+            log.debug(f"{final_path} is an existing symlink")
+            if final_path.points_to(source_path):
+                log.debug(f"{final_path} already points to {source_path}, making no changes")
+                return  # nothing to do
+            else:
+                log.info(f"{final_path} points to {final_path.get_link_path()}. Removing.")
+                final_path.unlink()
+
+        # back up the file if necessary and symlink
+        final_path.ensure_parent_exists()
+        final_path.backup_if_file_exists()
+        final_path.symlink_to(source_path)
+
+    def bless(self, to_dir):
+        """To bless means to copy a file to a path, then symlink it back to the
+        original location, backing up if necessary"""
+        assert self.exists(), "source must exist to bless it"
+        to_path = to_dir / self.name
+        to_path.ensure_parent_exists()
+        to_path.backup_if_file_exists()
+        copy2(self, to_path)
+        to_path.link_at(self)
 
 
 def main(args):
-    """Link 'frm' to 'to'.
-
-    Has DWIM behavior depending on what 'frm' and 'to' are:
-
-    if 'frm' is a file and 'to' is a dir:
-    - eg ~/.zshrc ~/setup/HOME
-    - copy ~/.zshrc into ~/setup/HOME and symlink from ~/.zshrc into ...HOME
-    - both frm and to must exist
-
-    if 'frm' is a file and 'to' is a file:
-    - eg. ~/bin/symgr ~/setup/HOME/bin/3rdparty/symgr/symgr
-    - symlink 'frm' to 'to' (back up what's there, etc.)
-    - to must exist, frm may not
-
-    if 'frm' and 'to' are both dirs:
-    - eg ~ ~/setup/HOME
-    - link everything within them
-    - strictly, to must exist, frm may not, but for this program both must exist
-
-    if frm is a dir and to is a file:
-    - makes no sense
-    """
-    frm = Path(args.frm)
-    to = Path(args.to)
+    frm = SymPath(args.frm)
+    to = SymPath(args.to)
 
     if frm.is_file() and to.is_dir():
-        log.info(f"Blessing file at {frm}. Moving to {to} and linking original path there.")
-        return bless(frm, to)
-
-    if frm.is_dir() and to.is_dir():
-        log.info(f"Linking the files in {to} into {frm}")
-        return link_directories(to, frm)
-
-    if to.is_file():
-        # if you got here, frm is either a file or doesn't exist, link frm to
-        # 'to' and let the code rename 'to' if it exists
-        log.info(f"Linking {frm} to {to}")
-        return link_file(to, frm)
-
-    log.error(f"Invalid arguments: from: {frm}, to: {to}. A required path may not exist.")
-    return 1
+        frm.bless(to)
+    else:
+        frm.link_at(to)
 
 
 if __name__ == "__main__":
