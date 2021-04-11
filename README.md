@@ -19,22 +19,21 @@ installed in the path.
 $ symgr {from} {to}
 
 # e.g.
-$ symgr ~ ~/setup/HOME  # create symlinks in $HOME pointing to ~/setup/HOME
+$ symgr ~/setup/HOME ~  # create symlinks in $HOME pointing to ~/setup/HOME
 ```
 
-I obviously agonized over the argument order and I hope it makes sense to you.
-Note that this is reversed from the order of the lower-level `ln -s path
-symlink`, which would be `symgr {to} {from}`.
-
-Also includes ability to take a file in your `$HOME` (or anywhere) and swap it
-with a symlink pointing to where you want it in your repository. This allows you
-to build your setup in source control in the first place.
+Also includes ability to take a file in your `$HOME` (or anywhere) and swap it with a symlink pointing to where you want it in your repository.
+This allows you to build your setup in source control in the first place.
+This is called "blessing" the file.
 
 ### Example:
 
 ```bash
-$ symgr ~/.zshrc ~/setup/HOME
+$ symgr --bless ~/.zshrc ~/setup/HOME
 ```
+
+This moves `~/.zshrc` to `~/setup/HOME/.zshrc` and symlinks the original file at
+`~/.zshrc` to `~/setup/HOME/.zshrc`
 
 ## Philosophy
 

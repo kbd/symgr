@@ -18,20 +18,20 @@ def create_test_dirs():
     TO_DIR.mkdir()
 
     for file in 'one','two','three':
-        (TO_DIR / file).touch()
+        (FROM_DIR / file).touch()
 
 
 def test_link_directories():
     print("Testing linking two directories")
 
-    cmd = ['./symgr', FROM_DIR, TO_DIR]
+    cmd = ['./symgr', '-d', FROM_DIR, TO_DIR]
     print(f"Running cmd: {cmd}")
     run(cmd)
 
     print("Test: symlinks are created and point to the right place")
     for file in 'one','two','three':
-        # ensure there is a link at FROM_DIR / file pointing to TO_DIR / file
-        assert readlink(FROM_DIR / file) == str((TO_DIR / file).resolve())
+        # ensure there is a link at TO_DIR / file pointing to FROM_DIR / file
+        assert readlink(TO_DIR / file) == str((FROM_DIR / file).resolve())
 
 
 def test_bless():
@@ -43,7 +43,7 @@ def test_bless():
     with open(file_to_bless, 'w') as f:
         f.write(contents)
 
-    cmd = ['./symgr', file_to_bless, TO_DIR]
+    cmd = ['./symgr', '-db', file_to_bless, TO_DIR]
     print(f"Running cmd: {cmd}")
     run(cmd)
 
@@ -60,21 +60,21 @@ def test_bless():
 def test_symlink():
     print("Testing creating one symlink")
 
-    frm = FROM_DIR / 'symlink'
-    to = TO_DIR / 'file'
+    frm = FROM_DIR / 'file'
+    to = TO_DIR / 'symlink'
 
     frm.touch()
     to.touch()
 
-    cmd = ['./symgr', frm, to]
+    cmd = ['./symgr', '-d', frm, to]
     print(f"Running cmd: {cmd}")
     run(cmd)
 
     print("Test: original file is backed up")
-    assert len(list(FROM_DIR.glob('symlink.bak.20*'))) == 1
+    assert len(list(TO_DIR.glob('symlink.bak.20*'))) == 1
 
     print("Test: symlink is created and points to the right place")
-    assert readlink(frm) == str(to.resolve())
+    assert readlink(to) == str(frm.resolve())
 
 
 def remove_test_dir_if_exists():
