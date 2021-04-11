@@ -5,7 +5,7 @@ import os
 import sys
 from pathlib import Path
 from shutil import copy2
-from subprocess import run
+from subprocess import DEVNULL, run
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +18,11 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 
     def is_ignored(self):
         """Check if the specified path is in the ignore list"""
-        return run(['git', 'check-ignore', '-q', self]).returncode == 0
+        cmd = ['git', 'check-ignore', '-q', self]
+        return run(cmd, stderr=DEVNULL).returncode == 0
+
+    def is_system_file(self):
+        return self.name in SYSTEM_FILES
 
     def backup(self):
         run(['bak', self], check=True)
@@ -29,14 +33,6 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 
     def points_to(self, path):
         return self.get_link_path() == path
-
-    def walk(self):
-        """Return all files under this directory"""
-        for file in sorted(self.iterdir()):
-            if file.is_dir():
-                yield from file.walk()
-            else:
-                yield file
 
     def ensure_parent_exists(self):
         return self.parent.mkdir(parents=True, exist_ok=True)
@@ -65,38 +61,38 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
         self.unlink()
         return True
 
-    def link_at(self, target, relative_to=None):
-        assert self.exists(), "source must exist to be linked to"
+    def resolve_target(self, name):
+        return self / name if self.is_dir() else self
 
-        if not relative_to:
-            relative_to = self.parent if self.is_file() else self
+    def link_at(self, target):
+        source = self.resolve()  # make absolute
+        assert source.exists(), "source must exist to be linked to"
+        if target.is_symlink() and target.points_to(source):
+            log.debug(f"{target} is already a correct symlink; doing nothing")
+            return True
+        assert source != target.resolve(), "source path must not equal target path"
 
-        assert relative_to <= self, "relative to must be a parent of source"  # relative to must be a parent dir
-        assert self.resolve() != target.resolve(), "source path must not equal target path"
-
-        if self.is_ignored():
-            log.debug(f"{self} is ignored")
+        if source.is_ignored():
+            log.debug(f"{source} is ignored")
             return
 
-        if self.name in SYSTEM_FILES:
-            log.debug(f"Ignoring system file {self}")
+        if source.is_system_file():
+            log.debug(f"Ignoring system file {source}")
             return
 
-        if self.is_dir():
-            for path in self.walk():
-                dest = target / path.relative_to(relative_to)
-                path.link_at(dest, relative_to)
+        if source.is_dir():
+            for path in sorted(source.iterdir()):
+                path.link_at(target / path.relative_to(source))
         else:
-            source_path = self.resolve()
-            final_path = target / self.name if target.is_dir() else target
-            if final_path.handle_existing_symlink(source_path):
-                final_path.safe_symlink_to(source_path)
+            final_path = target.resolve_target(source.name)
+            if final_path.handle_existing_symlink(source):
+                final_path.safe_symlink_to(source)
 
-    def bless(self, to_dir):
+    def bless(self, target):
         """To bless means to copy a file to a path, then symlink it back to the
         original location, backing up if necessary"""
         assert self.exists(), "source must exist to bless it"
-        to_path = to_dir / self.name
+        to_path = target.resolve_target(self.name)
         to_path.ensure_parent_exists()
         to_path.backup_if_file_exists()
         copy2(self, to_path)
@@ -106,8 +102,7 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 def main(args):
     frm = SymPath(args.frm)
     to = SymPath(args.to)
-
-    if frm.is_file() and to.is_dir():
+    if args.bless:
         frm.bless(to)
     else:
         frm.link_at(to)
@@ -118,6 +113,7 @@ if __name__ == "__main__":
     parser.add_argument('frm', metavar='from', help="The directory in which to create links, or the file to bless")
     parser.add_argument('to', help='The directory the links point to, or the dest dir for the blessed file')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging')
+    parser.add_argument('-b', '--bless', action='store_true', help='"Bless" the from location to the to location. Copy it and link back to it')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)

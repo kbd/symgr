@@ -43,7 +43,7 @@ def test_bless():
     with open(file_to_bless, 'w') as f:
         f.write(contents)
 
-    cmd = ['./symgr', '-d', file_to_bless, TO_DIR]
+    cmd = ['./symgr', '-db', file_to_bless, TO_DIR]
     print(f"Running cmd: {cmd}")
     run(cmd)
 
