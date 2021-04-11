@@ -16,6 +16,9 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
     def get_link_path(self):
         return self.__class__(os.readlink(self))
 
+    def points_to(self, path):
+        return self.get_link_path() == path
+
     def is_ignored(self):
         """Check if the specified path is in the ignore list"""
         cmd = ['git', 'check-ignore', '-q', self]
@@ -30,9 +33,6 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
     def backup_if_file_exists(self):
         if self.exists() and not self.is_dir():
             self.backup()
-
-    def points_to(self, path):
-        return self.get_link_path() == path
 
     def ensure_parent_exists(self):
         return self.parent.mkdir(parents=True, exist_ok=True)
