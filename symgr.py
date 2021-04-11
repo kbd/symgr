@@ -41,51 +41,56 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
     def ensure_parent_exists(self):
         return self.parent.mkdir(parents=True, exist_ok=True)
 
-    def link_at(self, destination, relative_to=None):
+    def safe_symlink_to(self, other):
+        """Ensure destination path exists, back up any existing file"""
+        self.ensure_parent_exists()
+        self.backup_if_file_exists()
+        self.symlink_to(other)
+
+    def handle_existing_symlink(self, to_path):
+        """Delete existing symlink if exists and is wrong.
+
+        Returns True if anything still needs to be done,
+        False if existing symlink is already correct.
+        """
+        if not self.is_symlink():
+            return True
+
+        log.debug(f"{self} is an existing symlink")
+        if self.points_to(to_path):
+            log.debug(f"{self} already points to {to_path}, making no changes")
+            return False  # nothing to do
+
+        log.info(f"{self} points to {self.get_link_path()}. Removing.")
+        self.unlink()
+        return True
+
+    def link_at(self, target, relative_to=None):
         assert self.exists(), "source must exist to be linked to"
 
         if not relative_to:
             relative_to = self.parent if self.is_file() else self
 
         assert relative_to <= self, "relative to must be a parent of source"  # relative to must be a parent dir
+        assert self.resolve() != target.resolve(), "source path must not equal target path"
 
-        source_path = self.resolve()
-        dest_path = destination.resolve()
-        assert source_path != dest_path, "source path must not equal dest path"
-
-        if source_path.is_ignored():
-            log.debug(f"{source_path} is ignored")
+        if self.is_ignored():
+            log.debug(f"{self} is ignored")
             return
 
-        if source_path.name in SYSTEM_FILES:
-            log.debug(f"Ignoring system file {source_path}")
+        if self.name in SYSTEM_FILES:
+            log.debug(f"Ignoring system file {self}")
             return
 
-        if source_path.is_dir():
+        if self.is_dir():
             for path in self.walk():
-                dest = destination / path.relative_to(relative_to)
+                dest = target / path.relative_to(relative_to)
                 path.link_at(dest, relative_to)
-            return
-
-        final_path = dest_path
-        if dest_path.is_dir():
-            final_path = SymPath(dest_path / source_path.name)
-
-        # deal with existing symlink
-        if final_path.is_symlink():
-            # make sure it's pointing to the right place
-            log.debug(f"{final_path} is an existing symlink")
-            if final_path.points_to(source_path):
-                log.debug(f"{final_path} already points to {source_path}, making no changes")
-                return  # nothing to do
-            else:
-                log.info(f"{final_path} points to {final_path.get_link_path()}. Removing.")
-                final_path.unlink()
-
-        # back up the file if necessary and symlink
-        final_path.ensure_parent_exists()
-        final_path.backup_if_file_exists()
-        final_path.symlink_to(source_path)
+        else:
+            source_path = self.resolve()
+            final_path = target / self.name if target.is_dir() else target
+            if final_path.handle_existing_symlink(source_path):
+                final_path.safe_symlink_to(source_path)
 
     def bless(self, to_dir):
         """To bless means to copy a file to a path, then symlink it back to the
