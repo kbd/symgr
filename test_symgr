@@ -37,24 +37,27 @@ def test_link_directories():
 def test_bless():
     print("Testing blessing a 'dotfile' from source to repo")
 
-    file_to_bless = FROM_DIR / 'dotfile'
-    file_to_bless_in_to = (TO_DIR / 'dotfile').resolve()
+    original_path = (FROM_DIR / '.zshrc').resolve()
+    new_location = (TO_DIR / '.zshrc').resolve()
+
+    # original_path should be backed up and then
+    # made a symlink pointing to new_location
     contents = 'contents'
-    with open(file_to_bless, 'w') as f:
+    with open(original_path, 'w') as f:
         f.write(contents)
 
-    cmd = ['./symgr', '-db', file_to_bless, TO_DIR]
+    cmd = ['./symgr', '-db', original_path, TO_DIR]
     print(f"Running cmd: {cmd}")
     run(cmd)
 
     print("Test: symlink is created")
-    assert readlink(file_to_bless) == str(file_to_bless_in_to)
+    assert readlink(original_path) == str(new_location)
 
     print("Test: file contents match")
-    assert open(file_to_bless_in_to).read() == contents
+    assert open(original_path).read() == contents
 
     print("Test: bak file of original is created")
-    assert len(list(FROM_DIR.glob('dotfile.bak.20*'))) == 1
+    assert len(list(FROM_DIR.glob('.zshrc.bak.20*'))) == 1
 
 
 def test_symlink():
