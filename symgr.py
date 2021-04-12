@@ -39,7 +39,7 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 
     def safe_symlink_to(self, other):
         """Ensure destination path exists, back up any existing file"""
-        log.debug(f"Pointing {other} -> {self}")
+        log.info(f"Pointing {other} -> {self}")
         self.ensure_parent_exists()
         self.backup_if_file_exists()
         self.symlink_to(other)
@@ -67,10 +67,14 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 
     def link_at(self, target):
         source = self.resolve()  # make absolute
-        assert source.exists(), "source must exist to be linked to"
+        if not source.exists():
+            log.info(f"{source} doesn't exist, skipping")
+            return True
+
         if target.is_symlink() and target.points_to(source):
             log.debug(f"{target} is already a correct symlink; doing nothing")
             return True
+
         assert source != target.resolve(), "source path must not equal target path"
 
         if source.is_ignored():
