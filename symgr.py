@@ -77,9 +77,10 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 
         assert source != target.resolve(), "source path must not equal target path"
 
-        if source.is_ignored():
-            log.debug(f"{source} is ignored")
-            return
+        if not args.no_ignore:
+            if source.is_ignored():
+                log.debug(f"{source} is ignored")
+                return
 
         if source.is_system_file():
             log.debug(f"Ignoring system file {source}")
@@ -121,6 +122,7 @@ if __name__ == "__main__":
     parser.add_argument('to', help='The directory the links point to, or the dest dir for the blessed file')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging')
     parser.add_argument('-b', '--bless', action='store_true', help='"Bless" the from location to the destination directory. Copy it and link back to it')
+    parser.add_argument('-I', '--no-ignore', action='store_true', help="Don't respect git ignore")
     args = parser.parse_args()
 
     level = logging.DEBUG if args.debug else logging.INFO
