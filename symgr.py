@@ -132,4 +132,5 @@ if __name__ == "__main__":
 
     level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(level=level, format="%(levelname)s:%(message)s")
-    sys.exit(SymPath(args.frm).link_at(SymPath(args.to), bless=args.bless, dry_run=args.dry_run))
+    result = SymPath(args.frm).link_at(SymPath(args.to), bless=args.bless, dry_run=args.dry_run)
+    sys.exit(not result)
