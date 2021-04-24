@@ -39,12 +39,11 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 
     def safe_symlink_to(self, other, bless=False, dry_run=False):
         """Ensure destination path exists, back up any existing file"""
-        # other is from, self is to
-        d = f" ({dry_run=})" if dry_run else ''
         me = self
         if bless:
             me = me.resolve_target(other.name).resolve()
 
+        d = f" ({dry_run=})" if dry_run else ''
         log.info(f"{me} -> {other}{d}")
 
         if dry_run:
