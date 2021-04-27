@@ -32,8 +32,7 @@ This is called "blessing" the file.
 $ symgr --bless ~/.zshrc ~/setup/HOME
 ```
 
-This moves `~/.zshrc` to `~/setup/HOME/.zshrc` and symlinks the original file at
-`~/.zshrc` to `~/setup/HOME/.zshrc`
+This copies `~/.zshrc` to `~/setup/HOME/.zshrc`, creates a backup of the original using `bak`, and symlinks the original file at `~/.zshrc` to `~/setup/HOME/.zshrc`
 
 ## Philosophy
 
