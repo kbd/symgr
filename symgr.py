@@ -39,7 +39,7 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 
     def safe_symlink_to(self, other, bless=False, dry_run=False):
         """Ensure destination path exists, back up any existing file"""
-        me = self.resolve_target(other.name).resolve()
+        me = self.resolve_target(other.name)
         d = f" ({dry_run=})" if dry_run else ''
         log.info(f"{me} -> {other}{d}")
 
@@ -50,6 +50,7 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
             me.ensure_parent_exists()
             me.backup_if_file_exists()
             if bless:
+                me = me.resolve()
                 copy2(other, me)
                 other.backup_if_file_exists()
                 other.symlink_to(me)
