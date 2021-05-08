@@ -94,8 +94,8 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
             log.critical("source path must not equal target path")
             return False
 
-        if bless and not target.exists():
-            log.critical(f"{target} must exist to bless it")
+        if bless and not source.exists():
+            log.critical(f"{source} must exist to bless it")
             return False
 
         if not args.no_ignore and source.is_ignored():
