@@ -40,8 +40,11 @@ Another approach, well-explained in [this post from Atalssian](https://www.atlas
 I prefer the separation I get with creating symlinks into a repository using a small tool vs making my `$HOME` itself a git repo.
 A tool also allows more control over git alone.
 For example, when first linking a directory, `symgr` renames any existing files (using `bak`) before creating symlinks, whereas using git directly requires a manual intervention upon first setup (on each computer) to deal with existing files.
-This also lets you have your home directory symlink creation as one part of a larger system setup.
-See https://github.com/kbd/setup for how I use this in my own system setup.
+
+Further, this separation allows you to symlink multiple sources into your `$HOME`.
+For example, my [system setup](https://github.com/kbd/setup) is all open source (see that for how I use `symgr` and store my dotfiles), but I also have some things in source control that aren't, yet I can symlink both of those repos "on top of each other" into my `$HOME` directory without a problem.
+
+Because `symgr` will always back up files before taking any operation, it's safe to use.
 
 ## FAQ
 
