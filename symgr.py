@@ -9,7 +9,7 @@ from subprocess import DEVNULL, run
 
 log = logging.getLogger(__name__)
 
-SYSTEM_FILES = ('.git', '.gitignore')
+SYSTEM_FILES = ['.git']
 
 
 class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116756
