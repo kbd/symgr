@@ -119,8 +119,8 @@ class SymPath(type(Path())):  # type: ignore # https://stackoverflow.com/a/34116
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Symlink manager")
-    parser.add_argument('frm', metavar='from', help="The directory in which to create links, or the file to bless")
-    parser.add_argument('to', help='The directory the links point to, or the dest dir for the blessed file')
+    parser.add_argument('frm', metavar='from', help="The source directory, or the file to bless")
+    parser.add_argument('to', help='The destination')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug logging')
     parser.add_argument('-b', '--bless', action='store_true', help='"Bless" the from location to the destination directory. Copy it and link back to it')
     parser.add_argument('-I', '--no-ignore', action='store_true', help="Don't respect git ignore")
